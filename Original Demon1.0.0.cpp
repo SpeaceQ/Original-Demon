@@ -1,4 +1,3 @@
-```c
 #include<bits/stdc++.h>
 #include<conio.h>
 #include<sstream>
@@ -520,4 +519,3 @@ void start(){
 	"■      ■"<<endl<<
 	"■■■■■■■■"<<endl;
 }
-```
