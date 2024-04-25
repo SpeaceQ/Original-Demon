@@ -1,4 +1,3 @@
-```c
 //#include<bits/stdc++.h>
 #include <stdexcept>
 #include<iostream>
@@ -569,4 +568,3 @@ int main() {
 	rain_thread.join();
 	return 0;
 }
-```
