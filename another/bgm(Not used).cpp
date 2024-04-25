@@ -1,4 +1,4 @@
-```c
+
 #include <cstdio>
 #include <windows.h>
 enum Notes {
@@ -52,4 +52,3 @@ int main()
 {
 	background_music();
 }
-```
