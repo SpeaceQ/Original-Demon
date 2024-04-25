@@ -1,4 +1,4 @@
-```c
+
 
 #include <time.h>
 #include <Windows.h>
@@ -115,4 +115,3 @@ int main()
 	rain();
 	return 0;
 }
-```
