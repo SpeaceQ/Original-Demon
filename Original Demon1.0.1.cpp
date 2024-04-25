@@ -1,4 +1,4 @@
-```c
+
 #include<bits/stdc++.h>
 #include<conio.h>
 #include<sstream>
@@ -554,4 +554,3 @@ int main(){
 	rain_thread.join();
 	return 0;
 }
-```
