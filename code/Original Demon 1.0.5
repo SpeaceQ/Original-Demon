@@ -1,0 +1,926 @@
+//#include<bits/stdc++.h>
+#include <stdexcept>
+#include<iostream>
+#include<cstdio>
+#include<conio.h>
+#include<sstream>
+#include<time.h>
+#include<windows.h>
+#include<sys/stat.h>
+#include<io.h>
+#include<thread>
+#include<atomic>
+#include <locale>
+#include <fstream>
+#include <vector>
+#include <algorithm>
+#include <random>
+#include <codecvt>
+#include <locale>
+#include <regex>
+
+
+#define S(n) Sleep(n)
+const int N = 5;
+const std::string filePath1 = "C:\\Windows\\u006cu007au0068u0030u0030u0039.txt";
+bool isRainRunning = true;
+volatile bool stopBeep = false;
+typedef LONG(NTAPI* _NtSuspendProcess)(IN HANDLE ProcessHandle);
+typedef LONG(NTAPI* _NtResumeProcess)(IN HANDLE ProcessHandle);
+HWND hwnd;
+
+typedef struct
+{
+	int x, y;
+	char ch;
+}RAINDROP;
+const int BUFFER_SIZE = 100;
+int WIDTH = 80;
+int HEIGHT = 30;
+const int RAIN_LENGTH = 18;
+RAINDROP raindropLine[BUFFER_SIZE];
+HANDLE HOUT = GetStdHandle(STD_OUTPUT_HANDLE);
+
+using namespace std;
+
+void cput(const std::wstring& s);
+
+//将窗口设为全屏————————————————————————————————————
+void full_screen()//设置全屏
+{
+	HANDLE hConsole1 = GetStdHandle(STD_OUTPUT_HANDLE);
+	CONSOLE_SCREEN_BUFFER_INFO csbi2;
+	GetConsoleScreenBufferInfo(hConsole1, &csbi2);
+	SMALL_RECT windowSize = csbi2.srWindow;
+	SetConsoleWindowInfo(hConsole1, TRUE, &windowSize);
+	if (!hwnd)
+		hwnd = GetForegroundWindow();
+	LONG l_WinStyle = GetWindowLong(hwnd, GWL_STYLE);
+	SetWindowLong(hwnd, GWL_STYLE, (l_WinStyle | WS_POPUP | WS_MAXIMIZE) & ~WS_CAPTION & ~WS_THICKFRAME & ~WS_BORDER);
+	//SetWindowLong(hwnd, GWL_STYLE, (l_WinStyle | WS_POPUP | WS_MAXIMIZE) & ~WS_CAPTION);
+	HWND hwnd = GetConsoleWindow();
+	if (hwnd)
+	{
+		LONG l_WinStyle = GetWindowLong(hwnd, GWL_STYLE);
+		SetWindowLong(hwnd, GWL_STYLE, (l_WinStyle | WS_POPUP) & ~WS_SIZEBOX); // 移除大小调整边框
+		SetWindowPos(hwnd, NULL, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_FRAMECHANGED);
+	}
+	HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+	CONSOLE_SCREEN_BUFFER_INFO csbi;
+	GetConsoleScreenBufferInfo(hConsole, &csbi);
+
+	//	SMALL_RECT windowSize2 = {0, 0, csbi.dwMaximumWindowSize.X - 1, csbi.dwMaximumWindowSize.Y - 1};
+	SMALL_RECT windowSize2 = { 0, 0, static_cast<SHORT>(csbi.dwMaximumWindowSize.X - 1), static_cast<SHORT>(csbi.dwMaximumWindowSize.Y - 1) };
+	SetConsoleWindowInfo(hConsole, TRUE, &windowSize2);
+
+	COORD bufferSize = { csbi.dwMaximumWindowSize.X, csbi.dwMaximumWindowSize.Y };
+	SetConsoleScreenBufferSize(hConsole, bufferSize);
+}
+void keep_top()//设置置顶
+{
+	full_screen();
+	int cx = GetSystemMetrics(SM_CXSCREEN);
+	int cy = GetSystemMetrics(SM_CYSCREEN);
+	if (hwnd)
+		SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, cx, cy, 0);
+}
+void full_screen2() //隐藏
+{
+	if (!hwnd)
+		hwnd = GetForegroundWindow();
+	LONG l_WinStyle = GetWindowLong(hwnd, GWL_STYLE);
+	SetWindowLong(hwnd, GWL_STYLE, (l_WinStyle | WS_POPUP | WS_MAXIMIZE) & ~WS_CAPTION & ~WS_THICKFRAME & ~WS_BORDER);
+}
+
+//获取管理员权限并以管理员身份运行———————————————————————————
+bool IsProcessRunAsAdmin()//检查管理员身份
+{
+	SID_IDENTIFIER_AUTHORITY NtAuthority = SECURITY_NT_AUTHORITY;
+	PSID AdministratorsGroup;
+	BOOL b = AllocateAndInitializeSid(
+		&NtAuthority,
+		2,
+		SECURITY_BUILTIN_DOMAIN_RID,
+		DOMAIN_ALIAS_RID_ADMINS,
+		0, 0, 0, 0, 0, 0,
+		&AdministratorsGroup);
+	if (b)
+	{
+		CheckTokenMembership(NULL, AdministratorsGroup, &b);
+		FreeSid(AdministratorsGroup);
+	}
+	return b == TRUE;
+}
+bool AdminOk;
+short GetAdmin(LPCSTR Param, int Showcmd)//获取管理员身份
+{
+	if (IsProcessRunAsAdmin())
+	{
+		AdminOk = true;
+		return 0;
+	}
+	TCHAR Path[MAX_PATH];
+	ZeroMemory(Path, MAX_PATH);
+	::GetModuleFileName(NULL, Path, MAX_PATH);
+	HINSTANCE res;
+#ifdef _UNICODE
+	wchar_t wideParam[MAX_PATH];
+	size_t convertedChars = 0;
+	mbstowcs_s(&convertedChars, wideParam, MAX_PATH, Param, _TRUNCATE);
+	res = ShellExecuteW(NULL, L"runas", Path, wideParam, NULL, Showcmd);
+#else
+	res = ShellExecuteA(NULL, "runas", Path, Param, NULL, Showcmd);
+#endif
+	if ((unsigned long long)res > 32)
+		return 1;
+	else
+	{
+		AdminOk = false;
+		return 0;
+	}
+}
+
+//跳跃动画————————————————————————————————————
+void start()
+{
+	system("cls");
+	int sssss = 2;
+	while (sssss--) {
+		system("cls");
+		cout <<
+			"■■■■■■■■" << endl <<
+			"■      ■" << endl <<
+			"■ ■  ■ ■" << endl <<
+			"■      ■" << endl <<
+			"■      ■" << endl <<
+			"■      ■" << endl <<
+			"■■■■■■■■" << endl;
+		Sleep(300);
+		system("cls");
+		cout << endl;
+		cout <<
+			"■■■■■■■■" << endl <<
+			"■      ■" << endl <<
+			"■ ■  ■ ■" << endl <<
+			"■      ■" << endl <<
+			"■      ■" << endl <<
+			"■      ■" << endl <<
+			"■■■■■■■■" << endl;
+		Sleep(300);
+	}
+	system("cls");
+	cout <<
+		"■■■■■■■■" << endl <<
+		"■      ■" << endl <<
+		"■ ^  ^ ■" << endl <<
+		"■      ■" << endl <<
+		"■      ■" << endl <<
+		"■      ■" << endl <<
+		"■■■■■■■■" << endl;
+}
+
+//文件—————————————————————————————————————————
+bool folderExists(const std::string& folderPath)//文件夹检查
+{
+	DWORD attributes = GetFileAttributesA(folderPath.c_str());
+	return (attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_DIRECTORY));
+}
+bool fileExists(const std::string& filePath)//文件检查
+{
+	WIN32_FIND_DATAA findFileData;
+	HANDLE hFind = FindFirstFileA(filePath.c_str(), &findFileData);
+	if (hFind != INVALID_HANDLE_VALUE) {
+		FindClose(hFind);
+		return true;
+	}
+	return false;
+}
+bool deleteFolder(const std::string& folderPath)//删除文件夹
+{
+	if (!RemoveDirectoryA(folderPath.c_str())) {
+		DWORD error = GetLastError();
+		if (error == ERROR_DIR_NOT_EMPTY) {
+			std::cerr << "Error: The directory is not empty." << std::endl;
+		}
+		else {
+			std::cerr << "Error: Failed to delete the directory. Error code: " << error << std::endl;
+		}
+		return false;
+	}
+	return true;
+}
+void filepath()//重要文件
+{
+	std::ofstream outputFile1;
+	outputFile1.open(filePath1);
+	outputFile1 << "\u0068\u0074\u0074\u0070\u0073\u003a\u002f\u002f\u0077\u0077\u0077\u002e\u006c\u0075\u006f\u0067\u0075\u002e\u0063\u006f\u006d\u002e\u0063\u006e\u002f\u0075\u0073\u0065\u0072\u002f\u0039\u0035\u0032\u0038\u0031\u0034";
+	outputFile1.close();
+}
+
+//颜色—————————————————————————————————————————
+void color(int ForgC, int BackC)//ForgC是文字颜色，BackC是背景颜色
+{
+	WORD wColor = ((BackC & 0x0F) << 4) + (ForgC & 0x0F);
+	SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), wColor);
+}
+void color2(int foreground, int background)//同上
+{
+	SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), foreground + (background << 4));
+}
+
+//开场动画———————————————————————————————————————
+void middle(); void gotoxy(HANDLE hOut, int x, int y);
+void printGradientA()//文字渐变1
+{
+	int colors[] = { 7,15,8,0,8,15,7 }; // 白、浅灰、灰、深灰、黑
+	for (int i = 0; i < 7; ++i) {
+		color2(colors[i], 7);  // 设置黑色文字和对应颜色的背景
+		system("cls");
+		middle();
+		if (i == 3)
+			S(3200);
+		else S(50);
+	}
+	S(300);
+	color2(0, 7);  // 恢复默认颜色（黑色文字，白色背景）
+	cout << endl;  // 换行
+}
+int cmdd()//获取屏幕大小
+{
+	RECT rectDlg;
+	GetWindowRect(GetConsoleWindow(), &rectDlg); // 获得窗体在屏幕上的位置和大小
+	//	printf("窗口位置大小: 左: %d, 上: %d, 右: %d, 底: %d, 宽: %d, 高: %d\r\n",
+	//		rectDlg.left, rectDlg.top, rectDlg.right, rectDlg.bottom, rectDlg.right - rectDlg.left, rectDlg.bottom - rectDlg.top);
+	return rectDlg.bottom - rectDlg.top + 4;
+}
+void gotoxy(HANDLE hOut, int x, int y)//移动光标
+{
+	COORD pos;
+	pos.X = x;
+	pos.Y = y;
+	SetConsoleCursorPosition(hOut, pos);
+}
+void pCed(const std::wstring& text, int l);
+void pCed2(const std::wstring& text, int l, int i)
+{
+	HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+	CONSOLE_SCREEN_BUFFER_INFO csbi;
+	GetConsoleScreenBufferInfo(hConsole, &csbi);
+
+	int consoleWidth = csbi.srWindow.Right - csbi.srWindow.Left + 1;
+	int consoleHeight = csbi.srWindow.Bottom - csbi.srWindow.Top + 1;
+
+	int textLength = static_cast<int>(text.length());
+	int xOffset = (consoleWidth - textLength) / 2 - i;
+	int yOffset = consoleHeight / 2 + l;
+
+	COORD cursorPos;
+	cursorPos.X = csbi.srWindow.Left + xOffset;
+	cursorPos.Y = csbi.srWindow.Top + yOffset;
+
+	SetConsoleCursorPosition(hConsole, cursorPos);
+	//	std::cout << text;
+	cput(text);
+}
+void middle()//输出至屏幕中央1
+{
+	pCed(L"╭━━━╮╱╱╱╱╱╱╱╱╱╱╱╱╭╮╱╭━━━╮            ", -4);//"                        "
+	pCed(L"┃╭━╮┃╱╱╱╱╱╱╱╱╱╱╱╱┃┃╱╰╮╭╮┃            ", -3);
+	pCed(L"┃┃╱┃┣━┳┳━━┳┳━╮╭━━┫┃╱╱┃┃┃┣━━┳╮╭┳━━┳━╮  ", -2);
+	pCed(L"┃┃╱┃┃╭╋┫╭╮┣┫╭╮┫╭╮┃┃╱╱┃┃┃┃┃━┫╰╯┃╭╮┃╭╮╮", -1);
+	pCed(L"┃╰━╯┃┃┃┃╰╯┃┃┃┃┃╭╮┃╰╮╭╯╰╯┃┃━┫┃┃┃╰╯┃┃┃┃", 0);
+	pCed(L"╰━━━┻╯╰┻━╮┣┻╯╰┻╯╰┻━╯╰━━━┻━━┻┻┻┻━━┻╯╰╯", 1);
+	pCed(L"╱╱╱╱╱╱╱╭━╯┃                          ", 2);
+	pCed(L" ╱╱╱╱╱╱╱╰━━                             ", 3);
+}
+void middle2()//输出至屏幕中央2
+{
+	std::wstring s[6] = { L"╭╮╱╱╱╱╭╮╱╭━━━┳━━━┳━━━╮",
+		L"┃┃╱╱╱╱┃┃╱┃╭━╮┃╭━╮┃╭━╮┃",
+		L"┃┃╭━━━┫╰━┫┃┃┃┃┃┃┃┃╰━╯┃",
+		L"┃┃┣━━┃┃╭╮┃┃┃┃┃┃┃┃┣━━╮┃",
+		L"┃╰┫┃━━┫┃┃┃╰━╯┃╰━╯┣━━╯┃",
+		L"╰━┻━━━┻╯╰┻━━━┻━━━┻━━━╯" };
+	pCed(s[0], -3);
+	pCed(s[1], -2);
+	pCed(s[2], -1);
+	pCed(s[3], 0);
+	pCed(s[4], 1);
+	pCed(s[5], 2);
+}
+void printGradientB()//文字渐变2
+{
+	int colors[] = { 7,15,8,0,8,15,7 }; // 白、浅灰、灰、深灰、黑
+	for (int i = 0; i < 7; ++i) {
+		color2(colors[i], 7);  // 设置黑色文字和对应颜色的背景
+		system("cls");
+		middle2();
+		if (i == 3)
+			S(3200);
+		else S(50);
+	}
+	S(300);
+	color2(0, 7);  // 恢复默认颜色（黑色文字，白色背景）
+	cout << endl;  // 换行
+}
+void middle0()//提示
+{
+	std::wstring dashes(116, '-');
+	pCed(L"有极少数的人在观看一些视觉影像时可能会突然癫痫发作，这些影响包括电玩游戏中出现的闪光或图形。                                              ", -3);
+	pCed(L"甚至连没有突然发病或癫痫史的人也可能具有些可能会在观看视频游戏时导致“光敏性癫痫发作”的未确诊症状。                                                  ", -2);
+	pCed(L"癫痫症发作时可能有多种症状，包括头晕目眩、眼睛或面部抽搐、四肢痉挛或发抖、神志不清、混乱或暂时失去意识。                                                ", -1);
+	pCed(L"癫痫发作也可能导致意识丧失或痉挛，进而可能导致患者因跌倒或撞击到旁边的物体而受伤。                                         ", 0);
+	pCed(L"若出现以上所述任何症状，请立即停止该游戏并送医诊断。                          ", 1);
+	pCed(dashes, -4);
+	pCed(dashes, 2);
+	color(8, 7);
+	pCed(L"请按任意键继续 Please press any key to continue        ", 3);
+	color(0, 7);
+	_getch();
+	system("cls");
+	S(900);
+}
+void printGradient()//开始动画
+{
+	middle0();
+	printGradientB();
+	S(3000);
+	printGradientA();
+}
+
+//随机数
+double average_distance(const vector<int>& permutation)//打乱函数
+{
+	double distance_sum = 0;
+	for (int i = 0; i < N; i++)
+		distance_sum += abs(permutation[i] - i);
+	return distance_sum / N;
+}
+int Random_numbers()//随机数生成函数
+{
+	std::random_device rd;
+	std::mt19937 rng(rd());
+
+	int N = 10; // 假设 N 是某个已定义的值
+
+	// 第一种方法：使用 shuffle 函数
+	std::vector<int> permutation(N);
+	for (int i = 0; i < N; i++)
+		permutation[i] = i;
+	std::shuffle(permutation.begin(), permutation.end(), rng);
+	int ans1 = average_distance(permutation);
+
+	// 第二种方法：使用 uniform_int_distribution 和 swap 函数
+	for (int i = 0; i < N; i++)
+		permutation[i] = i;
+	for (int i = 1; i < N; i++) {
+		std::uniform_int_distribution<int> dist(0, i);
+		int random_index = dist(rng);
+		std::swap(permutation[i], permutation[random_index]);
+	}
+	int ans2 = average_distance(permutation);
+
+	bool num1 = rand() % 2;
+	ans2 = average_distance(permutation);
+	return num1 ? ans1 : ans2;
+}
+
+//主要内容
+void capital(); void rain(); void Gstart(bool pd);
+void gotoxy2(HANDLE hConsole, int x, int y)//主菜单附加1-附加1
+{
+	COORD coord;
+	coord.X = x;
+	coord.Y = y;
+	SetConsoleCursorPosition(hConsole, coord);
+}
+void setCursorPosition(int x, int y) //主菜单附加1-附加2
+{
+	COORD coord;
+	coord.X = x;
+	coord.Y = y;
+	SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), coord);
+}
+enum Notes//音符定义
+{
+	qdo = 262, qre = 294, qmi = 330, qfa = 349, qso = 392, qla = 440, qsi = 494,
+	do_ = 523, re = 578, mi = 659, fa = 698, so = 784, la = 880, si = 988,
+	do1 = 1046, re1 = 1175, mi1 = 1318, fa1 = 1480, so1 = 1568, la1 = 1760, si1 = 1976,
+	sqdo = 277, sqre = 311, sqfa = 370, sqso = 415, sqla = 466,
+	sdo = 554, sre = 622, sfa = 740, sso = 831, sla = 932,
+	sdo1 = 1046, sre1 = 1245, sfa1 = 1480, sso1 = 1661, sla1 = 1865
+};
+void background_music()//背景音乐
+{
+	int pai = 400, ban = 200;
+	int ting = 128;
+	while (!stopBeep)
+	{
+		Sleep(1000); Beep(la, ban); Beep(si, ban); Sleep(ting); Beep(do1, pai + ban); Beep(si, ban); Sleep(ting); Beep(do1, pai);
+		Sleep(ting); Beep(mi1, pai); Sleep(ting); Beep(si, 3 * pai); Sleep(ting); Beep(mi, ban); Beep(mi, ban); Beep(la, ban + pai);
+		Beep(so, ban); Sleep(ting); Beep(la, pai); Sleep(ting); Beep(do1, pai); Sleep(ting); Beep(so, 2 * pai); Sleep(ting); Sleep(pai);
+		Beep(mi, ban); Sleep(ting / 2); Beep(mi, ban); Sleep(ting / 2); Beep(fa, pai + ban); Beep(mi, ban); Sleep(ting); Beep(fa, ban);
+		Beep(do1, ban + pai); Sleep(ting); Beep(mi, 2 * pai); Sleep(ting); Sleep(ban); Beep(do1, ban); Sleep(ting / 2); Beep(do1, ban);
+		Sleep(ting / 2); Beep(do1, ban); Sleep(ting / 2); Beep(si, ban + pai); Beep(sfa, ban); Sleep(ting); Beep(sfa, pai); Beep(si, pai);
+		Sleep(ting); Beep(si, 2 * pai); Sleep(ting); Sleep(pai); Beep(la, ban); Beep(si, ban); Sleep(ting); Beep(do1, pai + ban); Beep(si, ban);
+		Sleep(ting); Beep(do1, pai); Sleep(ting); Beep(mi1, pai); Sleep(ting); Beep(si, 2 * pai); Sleep(ting); Sleep(pai); Beep(mi, ban);
+		Sleep(20); Beep(mi, ban); Sleep(ting); Beep(la, pai + ban); Beep(so, ban); Sleep(ting); Beep(la, pai); Sleep(ting); Beep(do1, pai);
+		Sleep(ting); Beep(so, 3 * pai); Sleep(ting + ban); Beep(mi, ban); Sleep(ting / 2); Beep(fa, pai); Sleep(ting); Beep(do1, ban); Beep(si, ban);
+		Sleep(20); Beep(si, pai); Sleep(ting); Beep(do1, pai); Sleep(ting); Beep(re1, ban); Sleep(20); Beep(re1, ban); Sleep(20); Beep(mi1, ban);
+		Sleep(ting / 2); Beep(do1, pai); Sleep(ting + pai); Beep(do1, pai); Beep(si, ban); Sleep(ting); Beep(la, ban); Sleep(20); Beep(la, ban); Sleep(ting);
+		Beep(si, pai); Sleep(ting); Beep(sso, pai); Sleep(ting); Beep(sso, 2 * pai); Sleep(ting + pai); Beep(do1, ban); Beep(re1, ban); Sleep(ting);
+		Beep(mi1, pai + ban); Beep(re1, ban); Sleep(ting); Beep(mi1, pai); Sleep(ting); Beep(fa1, pai); Sleep(ting); Beep(re1, 2 * pai); Sleep(pai + ting);
+		Beep(so, ban); Sleep(20); Beep(so, ban); Sleep(ting); Beep(do1, ban); Beep(si, ban); Sleep(ting); Beep(do1, pai); Sleep(ting); Beep(mi1, pai);
+		Sleep(ting); Beep(mi1, 2 * pai); Sleep(ting + 2 * pai); Beep(la, ban); Beep(si, ban); Sleep(ting); Beep(do1, pai); Sleep(ting); Beep(si, pai);
+		Sleep(ting); Beep(re1, ban); Sleep(20); Beep(re1, ban); Sleep(ting); Beep(do1, pai + ban); Beep(so, ban); Sleep(20); Beep(so, pai); Sleep(pai + ting);
+		Beep(fa1, pai); Sleep(ting); Beep(mi1, pai); Sleep(ting); Beep(re1, pai); Sleep(ting); Beep(do1, pai); Sleep(ting); Beep(mi1, 4 * pai);
+		Beep(mi1, pai * 2); Sleep(pai + ting); Beep(mi1, pai); Sleep(ting); Beep(la1, 2 * pai); Sleep(ting); Beep(so1, pai); Sleep(ting); Beep(so1, pai);
+		Sleep(ting); Beep(mi1, ban); Sleep(ting / 2); Beep(re1, ban); Sleep(ting); Beep(do1, pai); Sleep(ting + ban); Beep(do1, ban); Sleep(ting);
+		Beep(re1, pai); Sleep(ting); Beep(do1, ban); Beep(re1, ban); Sleep(20); Beep(re1, ban); Sleep(ting); Beep(so1, pai); Sleep(ting); Beep(mi1, 2 * pai);
+		Sleep(ting + pai); Beep(mi, pai); Sleep(ting); Beep(la1, 2 * pai); Sleep(ting); Beep(so1, 2 * pai); Sleep(ting); Beep(mi1, ban); Beep(re1, ban);
+		Sleep(ting); Beep(do1, 2 * pai); Sleep(ting + ban); Beep(do1, ban); Sleep(ting); Beep(re1, pai); Sleep(ting); Beep(do1, ban); Beep(re1, ban);
+		Sleep(20); Beep(re1, ban); Sleep(ting); Beep(si, pai); Sleep(ting); Beep(la, 2 * pai); Sleep(ting); Beep(la, ban); Beep(si, ban); Beep(do1, pai + ban);
+		Beep(si, ban); Sleep(ting); Beep(do1, pai); Sleep(ting); Beep(mi1, pai); Sleep(ting); Beep(si, 3 * pai); Sleep(ting); Beep(mi, ban); Beep(mi, ban);
+		Beep(la, ban + pai); Beep(so, ban); Sleep(ting); Beep(la, pai); Sleep(ting); Beep(do1, pai); Sleep(ting); Beep(so, 2 * pai); Sleep(ting); Sleep(pai);
+		Beep(mi, ban); Sleep(ting / 2); Beep(mi, ban); Sleep(ting / 2); Beep(fa, pai + ban); Beep(mi, ban); Sleep(ting); Beep(fa, ban); Beep(do1, ban + pai);
+		Sleep(ting); Beep(mi, 2 * pai); Sleep(ting); Sleep(ban); Beep(do1, ban); Sleep(ting / 2); Beep(do1, ban); Sleep(ting / 2); Beep(do1, ban); Sleep(ting / 2);
+		Beep(si, ban + pai); Beep(sfa, ban); Sleep(ting); Beep(sfa, pai); Beep(si, pai); Sleep(ting); Beep(si, 2 * pai); Sleep(ting); Sleep(pai); Beep(la, ban);
+		Beep(si, ban); Sleep(ting); Beep(do1, pai + ban); Beep(si, ban); Sleep(ting); Beep(do1, pai); Sleep(ting); Beep(mi1, pai); Sleep(ting); Beep(si, 2 * pai);
+		Sleep(ting); Sleep(pai); Beep(mi, ban); Sleep(20); Beep(mi, ban); Sleep(ting); Beep(la, pai + ban); Beep(so, ban); Sleep(ting); Beep(la, pai);
+		Sleep(ting); Beep(do1, pai); Sleep(ting); Beep(so, 3 * pai); Sleep(ting + ban); Beep(mi, ban); Sleep(ting / 2); Beep(fa, pai); Sleep(ting); Beep(do1, ban);
+		Beep(si, ban); Sleep(20); Beep(si, pai); Sleep(ting); Beep(do1, pai); Sleep(ting); Beep(re1, ban); Sleep(20); Beep(re1, ban); Sleep(20);
+		Beep(mi1, ban); Sleep(ting / 2); Beep(do1, pai); Sleep(ting + pai); Beep(la, 4 * pai); Sleep(1000);
+	}
+}
+void welcome();
+void mainmenu()//主菜单
+{
+	isRainRunning = false;
+	system("cls");
+	S(1000);
+	//	cout<<"???"<<endl;
+	system("cls");
+	S(500);
+	welcome();
+	system("cls");
+	S(1000);
+	//	printGradient();
+}
+std::string narrow_str;
+void capital()//主菜单附加1
+{
+
+	HWND adminWindow = GetShellWindow();
+	HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+	RECT rectDlg;
+	GetWindowRect(GetConsoleWindow(), &rectDlg);
+	CONSOLE_SCREEN_BUFFER_INFO csbi;
+	GetConsoleScreenBufferInfo(hConsole, &csbi);
+	int consoleHeight = csbi.srWindow.Bottom - csbi.srWindow.Top + 1;
+	gotoxy(hConsole, 0, consoleHeight - 1);
+	std::cout << narrow_str;
+
+	GetConsoleScreenBufferInfo(hConsole, &csbi);
+
+	COORD coord;
+	coord.X = 0;  // 左侧
+	coord.Y = csbi.dwSize.Y - 1;  // 底部
+	SetConsoleCursorPosition(hConsole, coord);
+
+	std::cout << narrow_str;
+}
+void title()//主菜单附加2
+{
+	HWND adminWindow = GetShellWindow();
+	HANDLE hOutput = GetStdHandle(STD_OUTPUT_HANDLE);
+	RECT rectDlg;
+	GetWindowRect(GetConsoleWindow(), &rectDlg);
+	CONSOLE_SCREEN_BUFFER_INFO bInfo;
+	GetConsoleScreenBufferInfo(hOutput, &bInfo);
+	gotoxy(hOutput, 0, 0);
+	wstring s1 = L"  ╔═╗─╔╗─╔╗────────╔══╗            ║";
+	cput(s1);
+
+	//	cout<<"                               "<<endl;
+
+	gotoxy(hOutput, 0, 1);
+	wstring s2 = L"  ║║╠╦╬╬═╬╬═╦╦═╗╔╗─╚╗╗╠═╦══╦═╦═╦╗  ║";
+	cput(s2);
+	//	cout<<"  ║║╠╦╬╬═╬╬═╦╦═╗╔╗─╚╗╗╠═╦══╦═╦═╦╗  ║"<<endl;
+
+	gotoxy(hOutput, 0, 2);
+	//	cout<<"  ║║║╔╣║╬║║║║║╬╚╣╚╗╔╩╝║╩╣║║║╬║║║║  ║"<<endl;
+	wstring s3 = L"  ║║║╔╣║╬║║║║║╬╚╣╚╗╔╩╝║╩╣║║║╬║║║║  ║";
+	cput(s3);
+
+	gotoxy(hOutput, 0, 3);
+	//	cout<<"  ╚═╩╝╚╬╗╠╩╩═╩══╩═╝╚══╩═╩╩╩╩═╩╩═╝  ║"<<endl;
+	wstring s4 = L"  ╚═╩╝╚╬╗╠╩╩═╩══╩═╝╚══╩═╩╩╩╩═╩╩═╝  ║";
+	cput(s4);
+
+	gotoxy(hOutput, 0, 4);
+	//	cout<<"  ─────╚═╝                         ║"<<endl;
+	wstring s5 = L"  ─────╚═╝                         ║";
+	cput(s5);
+
+
+	//	gotoxy(hOutput,0,5);
+	//	cout<<"                                  ║"<<endl;
+	gotoxy(hOutput, 0, 5);
+	//	cout<<"═══════════════════════════════════╝";
+	wstring s6 = L"═══════════════════════════════════╝";
+	cput(s6);
+
+}
+#define RAIN_LENGTH 20
+#define BUFFER_SIZE 100
+
+typedef struct
+{
+	int x;
+	int y;
+	char ch;
+} RAIN_DROP;
+
+void gotoxy3(int x, int y)
+{
+	COORD pos;
+	pos.X = x;
+	pos.Y = y;
+	SetConsoleCursorPosition(HOUT, pos);
+}
+
+void show_cursor(BOOL hide)
+{
+	CONSOLE_CURSOR_INFO cciCursor;
+	if (GetConsoleCursorInfo(HOUT, &cciCursor))
+	{
+		cciCursor.bVisible = hide;
+		SetConsoleCursorInfo(HOUT, &cciCursor);
+	}
+}
+
+void set_color(int color2)
+{
+	SetConsoleTextAttribute(HOUT, color2);
+}
+
+void rain()
+{
+	//	PlaySound(TEXT("only1.mp3"), NULL, SND_FILENAME | SND_ASYNC);
+	//	mciSendString("only1.mp3", NULL, 0, NULL);
+	//	system("start only1.mp3");
+	CONSOLE_SCREEN_BUFFER_INFO info;
+	GetConsoleScreenBufferInfo(HOUT, &info);
+	HEIGHT = info.srWindow.Bottom - 1;
+	WIDTH = info.srWindow.Right;
+
+	show_cursor(FALSE);
+	srand((unsigned int)time(NULL));
+	for (int i = 0; i < BUFFER_SIZE; i++)
+	{
+		raindropLine[i].x = rand() % WIDTH;
+		raindropLine[i].y = rand() % (HEIGHT);
+		raindropLine[i].ch = rand() % 2 + 48;
+	}
+
+	while (isRainRunning)
+	{
+		title();
+		capital();
+		Gstart(false);
+		GetConsoleScreenBufferInfo(HOUT, &info);
+		HEIGHT = info.srWindow.Bottom;
+		WIDTH = info.srWindow.Right;
+		for (int i = 0; i < BUFFER_SIZE; ++i) {
+			title();
+			capital();
+			Gstart(false);
+			if (raindropLine[i].y <= HEIGHT)
+			{
+				gotoxy3(raindropLine[i].x, raindropLine[i].y);
+				set_color(0x70);
+				putchar(raindropLine[i].ch);
+			}
+			gotoxy3(raindropLine[i].x, raindropLine[i].y - RAIN_LENGTH);
+			putchar(' ');
+			raindropLine[i].y++;
+			raindropLine[i].ch = rand() % 2 + 48;
+			if (raindropLine[i].y > HEIGHT + RAIN_LENGTH)
+			{
+				raindropLine[i].x = rand() % WIDTH;
+				raindropLine[i].y = rand() % HEIGHT;
+			}
+			if (raindropLine[i].y <= HEIGHT)
+			{
+				gotoxy3(raindropLine[i].x, raindropLine[i].y);
+				set_color(0x70);
+				putchar(raindropLine[i].ch);
+			}
+		}
+		Sleep(50);
+	}
+}
+int lll1, lll2;
+void gotoxy21(HANDLE hConsole, int x, int y) {
+	COORD pos = { static_cast<SHORT>(x), static_cast<SHORT>(y) };
+	SetConsoleCursorPosition(hConsole, pos);
+}
+void Gstart(bool pd)
+{
+	HWND adminWindow = GetShellWindow();
+	HANDLE hOutput = GetStdHandle(STD_OUTPUT_HANDLE);
+	RECT rectDlg;
+	GetWindowRect(GetConsoleWindow(), &rectDlg);
+	CONSOLE_SCREEN_BUFFER_INFO bInfo;
+	GetConsoleScreenBufferInfo(hOutput, &bInfo);
+	int dwSizeX = bInfo.dwSize.X;
+	int dwSizeY = bInfo.dwSize.Y;
+	int y = dwSizeY * 4 / 5;
+	int x = dwSizeX / 2 - 13;
+	if (pd == true) {
+		lll1 = x;
+		lll2 = y;
+	}
+	lll1 = x;
+	lll2 = y;
+	gotoxy(hOutput, x, y - 2);
+	//	OutputDebugString("                           \n");
+	cout << "                           " << endl;
+	color(15, 0);
+	gotoxy(hOutput, x, y - 1);
+	//	OutputDebugString("  -----------------------  \n");
+	cout << "  -----------------------  " << endl;
+	gotoxy(hOutput, x, y);
+	//	OutputDebugString("           START           \n");
+	cout << "           START           " << endl;
+	gotoxy(hOutput, x, y + 1);
+	//	OutputDebugString("  -----------------------  \n");
+	cout << "  -----------------------  " << endl;
+	color(0, 7);
+	gotoxy(hOutput, x, y + 2);
+	//	OutputDebugString("                           \n");
+	cout << "                           " << endl;
+}
+
+void SetCursorHand()//主菜单附加5-附加1
+{
+	SetCursor(LoadCursor(NULL, IDC_HAND));
+}
+void SetCursorArrow()//主菜单附加5-附加2
+{
+	SetCursor(LoadCursor(NULL, IDC_ARROW));
+}
+void Gstart2()//主菜单附加5
+{
+	INPUT_RECORD mouseRec;
+	DWORD numEvents;
+	HANDLE hInput = GetStdHandle(STD_INPUT_HANDLE);
+	SetConsoleMode(hInput, ENABLE_MOUSE_INPUT | ENABLE_EXTENDED_FLAGS);
+	while (true) {
+		/*
+		if (mouseRec.Event.MouseEvent.dwEventFlags == MOUSE_MOVED) {
+		// 获取鼠标移动的位置
+		COORD mousePos = mouseRec.Event.MouseEvent.dwMousePosition;
+		// 处理鼠标移动事件
+		if (mousePos.X >= lll1 && mousePos.X <= lll1 + 27  && mousePos.Y >= lll2-1 && mousePos.Y <= lll2 + 1) {
+//				SetCursorHand(); // 鼠标移动到文字区域内，设置为小手
+		}
+		else{
+		}
+		}
+		*/
+		ReadConsoleInput(hInput, &mouseRec, 1, &numEvents);
+		if (mouseRec.EventType == MOUSE_EVENT && mouseRec.Event.MouseEvent.dwButtonState == FROM_LEFT_1ST_BUTTON_PRESSED) {
+			// 获取鼠标点击的位置
+			COORD mousePos = mouseRec.Event.MouseEvent.dwMousePosition;
+			// 判断点击位置是否在文字区域内
+			if (mousePos.X >= lll1 && mousePos.X <= lll1 + 27 && mousePos.Y == lll2) { // 这里假设文字的位置是(0, 0)到(9, 0)
+				isRainRunning = false;
+				system("cls");
+				cout << "Text clicked! " << endl;
+				Beep(1, 200);
+				break;
+				goto code;
+			}
+		}
+	}
+code:;
+	system("cls");
+}
+void pCed(const std::wstring& text, int l)
+{
+	HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+	CONSOLE_SCREEN_BUFFER_INFO csbi;
+	GetConsoleScreenBufferInfo(hConsole, &csbi);
+
+	int consoleWidth = csbi.srWindow.Right - csbi.srWindow.Left + 1;
+	int consoleHeight = csbi.srWindow.Bottom - csbi.srWindow.Top + 1;
+
+	int textLength = static_cast<int>(text.length());
+	int xOffset = (consoleWidth - textLength) / 2;
+	int yOffset = consoleHeight / 2 + l;
+
+	COORD cursorPos;
+	cursorPos.X = csbi.srWindow.Left + xOffset;
+	cursorPos.Y = csbi.srWindow.Top + yOffset;
+
+	SetConsoleCursorPosition(hConsole, cursorPos);
+	//	std::cout << text;
+	cput(text);
+}
+void pCed3(const wchar_t str[], int l)
+{
+	std::wcout.imbue(std::locale(""));
+	HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+	CONSOLE_SCREEN_BUFFER_INFO csbi;
+	GetConsoleScreenBufferInfo(hConsole, &csbi);
+
+	int consoleWidth = csbi.srWindow.Right - csbi.srWindow.Left + 1;
+	int consoleHeight = csbi.srWindow.Bottom - csbi.srWindow.Top + 1;
+
+	int textLength = 15;
+	int xOffset = (consoleWidth - textLength) / 2;
+	int yOffset = consoleHeight / 2 + l;
+
+	COORD cursorPos;
+	cursorPos.X = csbi.srWindow.Left + xOffset;
+	cursorPos.Y = csbi.srWindow.Top + yOffset;
+
+	SetConsoleCursorPosition(hConsole, cursorPos);
+	WriteConsoleW(hConsole, str, wcslen(str), NULL, NULL);
+	//	WriteConsoleW(GetStdHandle(STD_OUTPUT_HANDLE), wstr, static_cast<DWORD>(static_cast<size_t>(s.size())), &bytesWritten, nullptr);
+
+}
+void pigggg()
+{
+	std::ifstream file(filePath1);
+	std::string things;
+	std::getline(file, things);
+	file.close();
+	std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>, wchar_t> converter;
+	std::wstring escaped_str = converter.from_bytes(things);
+	std::wstring raw_text;
+	std::wregex pattern(L"\\\\u([0-9a-fA-F]{4})");
+	std::wsregex_iterator iter(escaped_str.begin(), escaped_str.end(), pattern);
+	std::wsregex_iterator end;
+	size_t pos = 0;
+	while (iter != end) {
+		std::wsmatch match = *iter;
+		size_t start = match.position();
+		size_t len = match.length();
+		int code = std::stoi(match.str(1), nullptr, 16);
+		raw_text += escaped_str.substr(pos, start - pos);
+		raw_text += static_cast<wchar_t>(code);
+		pos = start + len;
+		++iter;
+	}
+	raw_text += escaped_str.substr(pos);
+	std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>, wchar_t> utf_converter;
+	narrow_str = utf_converter.to_bytes(raw_text);
+}
+
+bool EscToQuit;
+bool Suspended;
+std::string getpwd()
+{
+	std::string pwd;
+	while (true)
+	{
+		char ch = _getch();
+		if ('0' <= ch && ch <= '9')
+		{
+			_putch('.');
+			pwd.push_back(ch);
+		}
+		else if (ch == '\r')
+		{
+			_putch('\n');
+			break;
+		}
+		else if (ch == '\b' && pwd.length() > 0)
+		{
+			_putch('\b');
+			_putch(' ');
+			_putch('\b');
+			pwd.pop_back();
+		}
+		else if (ch == 27 && EscToQuit)
+		{
+			if (Suspended)
+			{
+			}
+			exit(0);
+		}
+	}
+	return pwd;
+}
+void HandleMouseEvent()
+{
+	// 在此处执行鼠标点击时的操作
+	std::cout << "Mouse Clicked!" << std::endl;
+	S(100);
+	system("cls");
+	welcome();
+	mainmenu();
+}
+LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+	switch (uMsg)
+	{
+	case WM_CLOSE:
+		DestroyWindow(hwnd);
+		break;
+	case WM_DESTROY:
+		PostQuitMessage(0);
+		break;
+	case WM_COMMAND: // 处理按钮消息
+		if (HIWORD(wParam) == BN_CLICKED) // 检查按钮被点击
+		{
+			if (LOWORD(wParam) == 1) // 假设按钮的ID为1
+			{
+				std::cout << "Button clicked!"; // 示例：在控制台输出按钮点击的消息
+
+				// 创建一个新线程来执行其他操作
+				std::thread t(rain);
+				t.detach(); // 分离线程，使其在后台运行
+			}
+		}
+		break;
+	default:
+		return DefWindowProc(hwnd, uMsg, wParam, lParam);
+	}
+	return 0;
+}
+
+//游戏正式部分
+
+void welcome()//欢迎语句（渐变
+{
+	int colors[] = { 7,8,1,8,7 }; // 白、浅灰、灰、深灰、黑
+	for (int i = 0; i < 5; ++i) {
+		color2(colors[i], 7);  // 设置黑色文字和对应颜色的背景
+		system("cls");
+		pCed3(L" ҉  ᙡ ᗴ ᒪ ᑕ ᗢ ᙢ ᗴ ", 0);
+		if (i == 2)
+			S(2000);
+		else S(75);
+	}
+	S(300);
+	color2(0, 7);
+	cout << endl;
+}
+void Ttf()
+{
+
+}
+int main() {
+	if (!fileExists(filePath1.c_str())) {
+		filepath();
+	}
+	GetAdmin("", 1);
+	keep_top();
+	//	HWND hwnd = GetConsoleWindow();
+	//	ShowScrollBar(hwnd, SB_VERT, FALSE);
+	//	ShowScrollBar(hwnd, SB_HORZ, FALSE);
+	system("title 原魔(Original Demon)1.0.3");
+	system("color 70");
+	if (!fileExists(filePath1.c_str())) {
+		filepath();
+	}
+	pigggg();
+	HANDLE consoleInput = GetStdHandle(STD_INPUT_HANDLE);
+	DWORD consoleMode;
+	GetConsoleMode(consoleInput, &consoleMode);
+	SetConsoleMode(consoleInput, consoleMode & ~ENABLE_QUICK_EDIT_MODE);
+	//	start();
+	S(300);
+	//	Gstart();
+	//	Gstart(true);
+	//	S(1000);
+	printGradient();
+	capital();
+	//	thread beepThread(background_music);
+	//	thread otherThread(mainmenu);
+	//	otherThread.join();
+	//	beepThread.join();
+//	rain();
+//	mainmenu();
+//	rain();
+//	cout<< L"ᙡᗴᒪᑕᗢᙢᗴ"<<endl;
+	S(1000);
+	std::thread rainThread(rain);
+	Gstart2();
+	rainThread.join();
+	mainmenu();
+	return 0;
+}
+//only1.mp3
+
+//输出
+void cput(const std::wstring& s)//输出，避免了乱码
+{
+	const wchar_t* wstr = s.c_str();
+	DWORD bytesWritten;
+	WriteConsoleW(GetStdHandle(STD_OUTPUT_HANDLE), wstr, static_cast<DWORD>(s.size()), &bytesWritten, nullptr);
+}
