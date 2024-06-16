@@ -1,4 +1,4 @@
-# Original Demon
+# Original Demon （项目已转移至[Github上的另外一个项目](https://github.com/SpeaceQ/Broken_God/)）
 
 这是一个C++小游戏项目
 
